@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from src.dipa_scraper import fetch_dipa_range
 from src.vcs_scraper import fetch_vcs_all
 from src.rcms_scraper import fetch_rcms_all
+from src.diva_scraper import fetch_diva_all
 
 
 st.set_page_config(page_title="펀드/개인투자조합 수집", layout="wide")
@@ -24,8 +25,8 @@ with st.sidebar:
 
     sources = st.multiselect(
         "소스 선택",
-        ["VCS(펀드)", "DIPA(개인투자조합 공시)", "R&D기술금융플랫폼"],
-        default=["VCS(펀드)", "DIPA(개인투자조합 공시)", "R&D기술금융플랫폼"],
+        ["VCS(펀드)", "DIPA(개인투자조합 공시)", "R&D기술금융플랫폼", "DIVA(전자공시)"],
+        default=["VCS(펀드)", "DIPA(개인투자조합 공시)", "R&D기술금융플랫폼", "DIVA(전자공시)"],
     )
 
 run = st.button("스크래핑 실행")
@@ -35,13 +36,15 @@ if run:
         st.stop()
 
     tasks = {}
-    with ThreadPoolExecutor(max_workers=3) as ex:
+    with ThreadPoolExecutor(max_workers=4) as ex:
         if "VCS(펀드)" in sources:
             tasks["VCS(펀드)"] = ex.submit(fetch_vcs_all, year_from, year_to)
         if "DIPA(개인투자조합 공시)" in sources:
             tasks["DIPA(개인투자조합 공시)"] = ex.submit(fetch_dipa_range, year_from, year_to)
         if "R&D기술금융플랫폼" in sources:
             tasks["R&D기술금융플랫폼"] = ex.submit(fetch_rcms_all, year_from, year_to)
+        if "DIVA(전자공시)" in sources:
+            tasks["DIVA(전자공시)"] = ex.submit(fetch_diva_all, year_from, year_to)
 
         results = {}
         for name, fut in tasks.items():
@@ -93,6 +96,22 @@ if run:
             "R&D기술금융플랫폼 CSV 다운로드",
             data=buf.getvalue(),
             file_name="rcms_funds_all.csv",
+            mime="text/csv",
+        )
+
+    if "DIVA(전자공시)" in results:
+        diva_rows = results["DIVA(전자공시)"]
+        st.success(f"DIVA 수집 완료: {len(diva_rows)} rows")
+        df_diva = pd.DataFrame(diva_rows)
+        st.subheader("DIVA 미리보기")
+        st.dataframe(df_diva.head(50), use_container_width=True)
+
+        buf = io.BytesIO()
+        df_diva.to_csv(buf, index=False, encoding="utf-8-sig")
+        st.download_button(
+            "DIVA CSV 다운로드",
+            data=buf.getvalue(),
+            file_name="diva_rsh_funds_all.csv",
             mime="text/csv",
         )
 
