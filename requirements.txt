@@ -2,3 +2,4 @@ streamlit
 pandas
 requests
 playwright
+beautifulsoup4
